@@ -1,0 +1,44 @@
+﻿@page
+@using Microsoft.AspNetCore.Identity
+@model IndexModel
+@inject SignInManager<IdentityUser> SignInManager
+@{
+    ViewData["Title"] = "Exodust";
+}
+
+<div class="text-center">
+    <h1 class="display-4">Exodust Web MMORPG</h1>
+    <p>Scalable ASP.NET Core 10 architecture with Identity, EF Core, and SignalR.</p>
+</div>
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h4">Player dashboard</h2>
+                    <p class="mb-3">Manage your plan or enter the game to update your progress in real time.</p>
+                    <a class="btn btn-primary me-2" asp-page="/Game">Open game</a>
+                    <a class="btn btn-outline-secondary" asp-page="/Options">User options</a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (Model.ShowAdsBanner)
+{
+    <div class="alert alert-warning mt-4" role="region" aria-label="Google ads banner placeholder">
+        <strong>Free plan:</strong> Google Ads banner area.
+        <div class="mt-2 border p-2 bg-light text-center">
+            <!-- Google Ads placeholder -->
+            <ins class="adsbygoogle"
+                 style="display:block"
+                 data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+                 data-ad-slot="1234567890"
+                 data-ad-format="auto"
+                 data-full-width-responsive="true"></ins>
+        </div>
+    </div>
+}
