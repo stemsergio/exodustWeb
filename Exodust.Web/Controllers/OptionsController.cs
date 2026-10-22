@@ -3,32 +3,30 @@ using Exodust.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.EntityFrameworkCore;
 
-namespace Exodust.Web.Pages;
+namespace Exodust.Web.Controllers;
 
 [Authorize]
-public class OptionsModel(
+public class OptionsController(
     ApplicationDbContext dbContext,
-    UserManager<IdentityUser> userManager) : PageModel
+    UserManager<IdentityUser> userManager) : Controller
 {
-    [BindProperty]
-    public bool IsPaid { get; set; }
-
-    public async Task OnGetAsync()
+    public async Task<IActionResult> Index()
     {
         var options = await GetOrCreateOptionsAsync();
-        IsPaid = options.IsPaid;
+        return View(options);
     }
 
-    public async Task<IActionResult> OnPostAsync()
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Index(bool isPaid)
     {
         var options = await GetOrCreateOptionsAsync();
-        options.IsPaid = IsPaid;
+        options.IsPaid = isPaid;
         await dbContext.SaveChangesAsync();
-        TempData["StatusMessage"] = IsPaid ? "Paid plan enabled." : "Free plan enabled.";
-        return RedirectToPage();
+        TempData["StatusMessage"] = isPaid ? "Paid plan enabled." : "Free plan enabled.";
+        return RedirectToAction(nameof(Index));
     }
 
     private async Task<PlayerOptions> GetOrCreateOptionsAsync()

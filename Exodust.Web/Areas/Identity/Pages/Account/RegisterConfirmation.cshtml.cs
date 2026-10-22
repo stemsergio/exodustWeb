@@ -48,7 +48,7 @@ namespace Exodust.Web.Areas.Identity.Pages.Account
         {
             if (email == null)
             {
-                return RedirectToPage("/Index");
+                return LocalRedirect("~/");
             }
             returnUrl = returnUrl ?? Url.Content("~/");
 

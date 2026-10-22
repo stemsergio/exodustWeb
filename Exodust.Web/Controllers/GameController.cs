@@ -4,29 +4,33 @@ using Exodust.Web.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 
-namespace Exodust.Web.Pages;
+namespace Exodust.Web.Controllers;
 
-[Authorize]
-public class GameModel(
+[Authorize(Roles = Roles.User)]
+public class GameController(
     ApplicationDbContext dbContext,
     UserManager<IdentityUser> userManager,
-    IHubContext<GameHub> hubContext) : PageModel
+    IHubContext<NotificationsHub> hubContext) : Controller
 {
-    public int Level { get; private set; }
-    public int ExperiencePoints { get; private set; }
-
-    public async Task OnGetAsync()
+    public async Task<IActionResult> Index()
     {
         var progress = await GetOrCreateProgressAsync();
-        Level = progress.Level;
-        ExperiencePoints = progress.ExperiencePoints;
+        var options = await dbContext.PlayerOptions.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == progress.UserId);
+
+        return View(new GameViewModel
+        {
+            Level = progress.Level,
+            ExperiencePoints = progress.ExperiencePoints,
+            ShowAdsBanner = options is null || !options.IsPaid,
+        });
     }
 
-    public async Task<IActionResult> OnPostGainXpAsync()
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> GainXp()
     {
         var progress = await GetOrCreateProgressAsync();
         progress.ExperiencePoints += 10;
@@ -35,7 +39,7 @@ public class GameModel(
         await dbContext.SaveChangesAsync();
 
         await hubContext.Clients.User(progress.UserId).SendAsync("ProgressUpdated", progress.Level, progress.ExperiencePoints);
-        return RedirectToPage();
+        return RedirectToAction(nameof(Index));
     }
 
     private async Task<UserProgress> GetOrCreateProgressAsync()
