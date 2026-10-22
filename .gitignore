@@ -52,3 +52,14 @@ CodeCoverage/
 *.VisualState.xml
 TestResult.xml
 nunit-*.xml
+# Local databases (SQLite) - never commit
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vs/
+*.user
+
+# Web game client build output (source lives in Clients/web)
+Exodust.Web/wwwroot/game/

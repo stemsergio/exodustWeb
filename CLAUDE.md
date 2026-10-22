@@ -1,65 +1,49 @@
-# Exodust
+# exodustWeb
 
-Authoritative-server multiplayer game. One-person project, learning-as-building.
-Start minimal and 2D; the architecture must scale to MMO-class later without rewrites.
+Website, accounts and user database for Exodust, a 3D multiplayer game.
+This repo is ONLY the web layer. The game simulation lives in a separate Go server.
+Assume this repo may be public: no secrets, no data files, no internal URLs.
 
-## Tech stack
+## Stack
 
-- **Server:** Go. Single binary. Serves a WebSocket endpoint for the game and
-  HTTP endpoints for account/services. No microservices yet — one process.
-- **Client:** TypeScript in the browser. Canvas 2D now; migrate to Pixi.js when
-  sprite counts demand it. Thin client: renders state and sends input, nothing else.
-- **Transport:** WebSocket (game loop) + HTTP/JSON (services). No UDP.
-- **Serialization:** JSON now. Move to a binary/generated protocol later if needed.
+- ASP.NET Core 10, MVC (Identity UI stays as Razor Pages in `Areas/Identity`)
+- ASP.NET Core Identity with roles + EF Core on SQL Server (`.\SQLEXPRESS`, database `ExodustTest`, in development)
+- `Data/DbInitializer` applies pending migrations on startup, then seeds roles (`SuperAdmin`, `User`)
+  and the super admin from `Seed:*` config. New users get the `User` role; `Home/Index` sends them
+  to `Game/Index`.
+- Google login (optional), SendGrid email
+- SignalR: `NotificationsHub` (`/hubs/notifications`) for site notifications only
 
-## Architecture (this is the core invariant)
+## Responsibilities
 
-The game is a pure function: `tick(state, inputs, dt) -> newState`, run at a fixed
-rate on the server. The server is the single source of truth. Clients never decide
-game outcomes; they send inputs and render snapshots.
+This app owns:
+- Users, login, registration, plans (free/paid), progress persistence.
+- The database. No other service writes to it.
+- Serving the web game client (built from a separate TypeScript project into
+  `wwwroot/game/`, which is gitignored).
 
-```
-/sim      ECS core: entities, components, systems, tick(). Pure. Headless.
-/server   wraps /sim: WebSocket, HTTP, fixed-tick loop, snapshot broadcast
-/client   TypeScript thin renderer + input capture
-/shared   protocol/message type definitions shared in spirit by client & server
-```
+This app does NOT:
+- Run gameplay or real-time game state. That is the Go server, over its own WebSocket.
+- Decide game results. Progress (XP, levels, rewards) must come from the Go server.
 
-ECS model inside /sim:
-- **Entity** = an id.
-- **Component** = flat data attached to an entity (Position, Velocity, Health...).
-- **System** = a pure function over entities that have given components.
-- New mechanic = new component + new system. Never edit unrelated systems.
+## Integration with the Go game server (planned)
 
-## Non-negotiable rules
+1. Logged-in player requests a short-lived signed token from this app.
+2. The web client connects to the Go server's WebSocket with that token.
+3. The Go server verifies the signature with a shared key. It never reads this DB.
+4. The Go server reports results to an internal HTTP endpoint here; this app persists them.
 
-1. **/sim imports nothing from /server, /client, network, engine, or DB.**
-   If a /sim file imports a websocket/db/engine package, the architecture is broken.
-2. **tick() is deterministic.** Same state + same inputs => same output, always.
-   No unseeded randomness, no reading system time inside the simulation.
-3. **Server is authoritative.** Client input is a request, never a decision.
-4. **Data is flat and separate from logic.** Components are data; systems are behavior.
-5. **No premature scaling.** One process, in-memory state, monolith until a real
-   problem forces otherwise. The isolated /sim is what makes later scaling cheap.
+## Rules
 
-## Persistence
+- **DB migrations are written by the human, never by Claude.** Model changes may be
+  proposed; the migration itself is not generated or applied by Claude.
+- Secrets via `dotnet user-secrets` in development and environment variables in production.
+  `appsettings*.json` keeps empty placeholders only.
+- Never commit `*.db`.
+- Code and identifiers in English. Player-facing text targets Colombian Spanish users.
+- Minimal, scoped changes. When two approaches are viable, present both and let the human choose.
 
-- MVP: state lives in memory. No DB yet.
-- **The user/account/progress data model is the one thing worth designing carefully
-  early** — it's the only piece with real long-term migration cost once real users exist.
-- **DB migrations are written by the human, never by Claude Code.**
+## Known temporary code
 
-## Conventions
-
-- Code and identifiers in English. UI strings target Colombian Spanish users.
-- Go: handle errors explicitly; run `go test -race` (shared mutable state =
-  race-condition risk, the main hazard of this design).
-- Keep changes minimal and scoped. Do not refactor unrelated code.
-- When unsure between two approaches, explain both and let the human choose.
-
-## Current phase
-
-First milestone: "the authoritative square" — one entity with a Position component,
-one MovementSystem, tick() running headless in a test, then wired through WebSocket
-to a Canvas client. Two browser tabs see the same server-driven square move.
-Build /sim first, then /server, then /client. Do not skip ahead.
+- `Game/Index` has a "Gain 10 XP" button that lets the client grant itself XP.
+  Demo only; to be replaced by results reported by the Go server.
