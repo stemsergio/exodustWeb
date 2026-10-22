@@ -5,4 +5,5 @@ public class GameViewModel
     public int Level { get; set; }
     public int ExperiencePoints { get; set; }
     public bool ShowAdsBanner { get; set; }
+    public string GameServerUrl { get; set; } = "";
 }
