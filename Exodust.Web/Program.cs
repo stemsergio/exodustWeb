@@ -97,3 +97,4 @@ app.MapRazorPages()
 app.MapHub<NotificationsHub>("/hubs/notifications");
 
 app.Run();
+//main
