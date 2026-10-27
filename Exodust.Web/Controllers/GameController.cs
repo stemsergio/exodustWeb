@@ -6,6 +6,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.JsonWebTokens;
+using Microsoft.IdentityModel.Tokens;
 
 namespace Exodust.Web.Controllers;
 
@@ -13,8 +15,10 @@ namespace Exodust.Web.Controllers;
 public class GameController(
     ApplicationDbContext dbContext,
     UserManager<IdentityUser> userManager,
+    IConfiguration configuration,
     IHubContext<NotificationsHub> hubContext) : Controller
 {
+
     public async Task<IActionResult> Index()
     {
         var progress = await GetOrCreateProgressAsync();
@@ -25,6 +29,7 @@ public class GameController(
             Level = progress.Level,
             ExperiencePoints = progress.ExperiencePoints,
             ShowAdsBanner = options is null || !options.IsPaid,
+            GameServerUrl = configuration["GameServer:Url"] ?? ""
         });
     }
 
@@ -55,5 +60,31 @@ public class GameController(
         dbContext.UserProgress.Add(progress);
         await dbContext.SaveChangesAsync();
         return progress;
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public IActionResult Token()
+    {
+        var secret = configuration["GameToken:Secret"];
+        if (string.IsNullOrWhiteSpace(secret))
+        {
+            return Problem("GameToken:Secret is not configured.");
+        }
+
+        var key = new SymmetricSecurityKey(Convert.FromBase64String(secret));
+        var token = new JsonWebTokenHandler().CreateToken(new SecurityTokenDescriptor
+        {
+            Issuer = "exodust-web",
+            Audience = "exodust-game",
+            Expires = DateTime.UtcNow.AddSeconds(60),
+            Claims = new Dictionary<string, object>
+            {
+                [JwtRegisteredClaimNames.Sub] = userManager.GetUserId(User)!,
+            },
+            SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256),
+        });
+
+        return Json(new { token });
     }
 }

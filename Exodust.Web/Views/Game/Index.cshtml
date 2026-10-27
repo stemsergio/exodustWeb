@@ -10,7 +10,12 @@
 <form method="post" asp-action="GainXp">
     <button type="submit" class="btn btn-success">Gain 10 XP</button>
 </form>
-
+<h2 class="h4 mt-4">Consola</h2>
+@Html.AntiForgeryToken()
+<div id="console" class="bg-dark text-light p-3 font-monospace"
+     style="height: 300px; overflow-y: auto; white-space: pre;"></div>
+<input id="keys" class="form-control font-monospace mt-2" autocomplete="off"
+       placeholder="Escribe w a s d y presiona Enter" />
 @if (Model.ShowAdsBanner)
 {
     <div class="alert alert-warning mt-4" role="region" aria-label="Google ads banner placeholder">
@@ -37,5 +42,39 @@
             document.getElementById("xp").textContent = xp;
         });
         connection.start().catch(() => {});
+    </script>
+    <script>
+        const consoleEl = document.getElementById("console");
+        const keysEl = document.getElementById("keys");
+
+        function log(line) {
+            consoleEl.textContent += line + "\n";
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        async function connectToGame() {
+            const antiforgery = document.querySelector('input[name="__RequestVerificationToken"]').value;
+            const res = await fetch('@Url.Action("Token", "Game")', {
+                method: "POST",
+                headers: { "RequestVerificationToken": antiforgery }
+            });
+            if (!res.ok) { log("No se pudo obtener el token (" + res.status + ")"); return; }
+            const { token } = await res.json();
+
+            const ws = new WebSocket(@Json.Serialize(Model.GameServerUrl));
+            ws.onopen = () => { ws.send(token); log("Conectado al servidor."); };
+            ws.onmessage = (e) => log(e.data);
+            ws.onclose = (e) => log("Desconectado (" + e.code + " " + e.reason + ")");
+
+            keysEl.addEventListener("keydown", (e) => {
+                if (e.key === "Enter" && ws.readyState === WebSocket.OPEN) {
+                    ws.send(keysEl.value);
+                    log("> " + keysEl.value);
+                    keysEl.value = "";
+                }
+            });
+        }
+
+        connectToGame();
     </script>
 }
